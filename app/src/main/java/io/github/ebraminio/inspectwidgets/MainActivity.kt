@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.util.SizeF
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -52,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.DeviceFontFamilyName
@@ -59,8 +61,10 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.children
+import androidx.core.view.drawToBitmap
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 
 class MainActivity : ComponentActivity() {
@@ -86,10 +90,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-fun tree(view: ViewGroup): Sequence<String> = sequence {
+fun tree(view: ViewGroup): Sequence<Pair<String, View>> = sequence {
     view.children.forEach { x ->
-        yield("+- " + x.javaClass.name.replace("android.widget.", ""))
-        if (x is ViewGroup) yieldAll(tree(x).map { "|  $it" })
+        yield(
+            "+- " + x.javaClass.name.replace(
+                "android.widget.", ""
+            ).replace(
+                "RemoteViewsAdapter\$RemoteViews", ""
+            ) to x
+        )
+        if (x is ViewGroup) yieldAll(tree(x).map { (x, y) -> "|  $x" to y })
     }
 }
 
@@ -126,9 +136,6 @@ fun ColumnScope.Content(screenWidth: Dp, screenHeight: Dp) {
             factory = {
                 val view = appWidgetHost.createView(context, id, widgetManager.getAppWidgetInfo(id))
                 widgetView = view
-                view
-            },
-            update = {
                 val info = widgetManager.getAppWidgetInfo(id)
                 val width = with(density) {
                     if (verticalExpand) info.minWidth.toDp() else screenWidth
@@ -136,24 +143,33 @@ fun ColumnScope.Content(screenWidth: Dp, screenHeight: Dp) {
                 val height = with(density) {
                     if (verticalExpand) info.minHeight.toDp() else screenWidth
                 }.value * 2
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    it.updateAppWidgetSize(Bundle.EMPTY, listOf(SizeF(width, height)))
-                } else it.updateAppWidgetSize(
-                    null, width.toInt(), height.toInt(), width.toInt(), height.toInt()
-                )
+                runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        view.updateAppWidgetSize(Bundle.EMPTY, listOf(SizeF(width, height)))
+                    } else view.updateAppWidgetSize(
+                        null, width.toInt(), height.toInt(), width.toInt(), height.toInt()
+                    )
+                }.onFailure {
+                    Toast.makeText(context, "Error set size", Toast.LENGTH_LONG).show()
+                }
+                view
             },
             modifier = Modifier
                 .height(400.dp)
                 .fillMaxWidth(),
         )
-        widgetView?.let { view ->
-            if (infoMode) {
-                Text(
-                    tree(view).joinToString("\n"),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily(Font(DeviceFontFamilyName("monospace")))
-                    )
-                )
+        if (infoMode) widgetView?.let(::tree)?.forEach { (line, v) ->
+            var render by remember { mutableStateOf(false) }
+            Text(
+                line + " (${if (render) "hide" else "show"})",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily(Font(DeviceFontFamilyName("monospace")))
+                ),
+                lineHeight = 36.sp,
+                modifier = Modifier.clickable { render = !render },
+            )
+            if (render && v.isLaidOut && v.width > 0 && v.height > 0) {
+                Image(bitmap = v.drawToBitmap().asImageBitmap(), contentDescription = null)
             }
         }
     }
