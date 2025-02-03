@@ -3,12 +3,15 @@ package io.github.ebraminio.inspectwidgets
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
+import android.content.ClipData
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
+import android.util.Base64
 import android.util.SizeF
 import android.view.View
 import android.view.ViewGroup
@@ -59,8 +62,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.font.DeviceFontFamilyName
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -71,6 +76,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.children
 import androidx.core.view.drawToBitmap
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import java.io.ByteArrayOutputStream
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -179,7 +186,33 @@ fun ColumnScope.Content(screenWidth: Dp, screenHeight: Dp) {
                 modifier = Modifier.clickable { render = !render },
             )
             if (render && v.isLaidOut && v.width > 0 && v.height > 0) {
-                Image(bitmap = v.drawToBitmap().asImageBitmap(), contentDescription = null)
+                v.background?.toString()?.let { Text(it) }
+                val bitmap = v.drawToBitmap()
+                val clipboardManager = LocalClipboardManager.current
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.clickable {
+                        val buffer = ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer)
+                        val byteArray = buffer.toByteArray()
+                        val url = "data:image/png;base64," + Base64.encodeToString(
+                            byteArray,
+                            Base64.DEFAULT
+                        )
+                        clipboardManager.setClip(ClipData.newPlainText("", url).toClipEntry())
+//                        val file = File(
+//                            context.externalCacheDir, "${Math.random()}.png"
+//                        ).also { it.writeBytes(byteArray) }
+//                        val uri = FileProvider.getUriForFile(
+//                            context.applicationContext, "${context.packageName}.provider",
+//                            file,
+//                        )
+//                        Toast.makeText(context, file.toString(), Toast.LENGTH_LONG).show()
+//                        ShareCompat.IntentBuilder(context).setType("image/png")
+//                            .setChooserTitle("Copy").setStream(uri).startChooser()
+                    },
+                )
             }
         }
     }
