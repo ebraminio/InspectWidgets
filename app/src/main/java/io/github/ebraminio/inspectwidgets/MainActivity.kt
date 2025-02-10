@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -149,21 +150,19 @@ fun ColumnScope.Content(screenWidth: Dp, screenHeight: Dp) {
             }, modifier = Modifier.rotate(90f)) { Icon(Icons.Default.MoreVert, null) }
             IconButton({ infoMode = !infoMode }) { Icon(Icons.Default.Info, null) }
         }
+        val width = 320f
+        val height = 320f
         AndroidView(
             factory = {
-                val view = appWidgetHost.createView(context, id, widgetManager.getAppWidgetInfo(id))
-                widgetView = view
                 val info = widgetManager.getAppWidgetInfo(id)
-                val width = with(density) {
-                    if (verticalExpand) info.minWidth.toDp() else screenWidth
-                }.value
-                val height = with(density) {
-                    if (verticalExpand) info.minHeight.toDp() else screenWidth
-                }.value * 2
+                val view = appWidgetHost.createView(context, id, info)
+                widgetView = view
+                view.setAppWidget(id, info)
                 runCatching {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        view.updateAppWidgetSize(Bundle.EMPTY, listOf(SizeF(width, height)))
-                    } else view.updateAppWidgetSize(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) view.updateAppWidgetSize(
+                        Bundle.EMPTY,
+                        listOf(SizeF(width, height))
+                    ) else view.updateAppWidgetSize(
                         null, width.toInt(), height.toInt(), width.toInt(), height.toInt()
                     )
                 }.onFailure {
@@ -171,9 +170,7 @@ fun ColumnScope.Content(screenWidth: Dp, screenHeight: Dp) {
                 }
                 view
             },
-            modifier = Modifier
-                .height(400.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.size(width.dp, height.dp),
         )
         if (infoMode) widgetView?.let(::tree)?.forEach { (line, v) ->
             var render by remember { mutableStateOf(false) }
@@ -241,6 +238,12 @@ fun ColumnScope.Content(screenWidth: Dp, screenHeight: Dp) {
                 .align(Alignment.CenterHorizontally)
                 .clip(MaterialTheme.shapes.large)
                 .clickable { add() },
+        )
+        Text(
+            """minWidth: ${widgetProvider.minWidth / density.density}
+            |minHeight: ${widgetProvider.minHeight / density.density}
+            |minResizeWidth: ${widgetProvider.minResizeWidth / density.density}
+            |minResizeHeight: ${widgetProvider.minResizeHeight / density.density}""".trimMargin()
         )
         TextButton(
             onClick = { add() },
