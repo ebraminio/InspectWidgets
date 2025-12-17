@@ -71,6 +71,7 @@ import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.font.DeviceFontFamilyName
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -232,6 +233,11 @@ fun ColumnScope.Content(screenWidth: Dp, screenHeight: Dp) {
             widgetBindLauncher.launch(appWidgetHost.allocateAppWidgetId() to widgetProvider.provider)
 
         Spacer(Modifier.height(16.dp))
+        Text(
+            widgetProvider.provider.packageName,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
         val description = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             widgetProvider.loadDescription(context).toString()
         } else "Widget"
