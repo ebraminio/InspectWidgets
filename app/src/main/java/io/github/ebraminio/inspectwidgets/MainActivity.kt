@@ -15,7 +15,6 @@ import android.util.Base64
 import android.util.SizeF
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -58,13 +57,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.toClipEntry
@@ -78,6 +78,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.children
 import androidx.core.view.drawToBitmap
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 
 
@@ -186,7 +187,8 @@ fun ColumnScope.Content(screenWidth: Dp, screenHeight: Dp) {
             if (render && v.isLaidOut && v.width > 0 && v.height > 0) {
                 v.background?.toString()?.let { Text(it) }
                 val bitmap = v.drawToBitmap()
-                val clipboardManager = LocalClipboardManager.current
+                val clipboard = LocalClipboard.current
+                val coroutineScope = rememberCoroutineScope()
                 Image(
                     bitmap = bitmap.asImageBitmap(),
                     contentDescription = null,
@@ -198,7 +200,9 @@ fun ColumnScope.Content(screenWidth: Dp, screenHeight: Dp) {
                             byteArray,
                             Base64.DEFAULT
                         )
-                        clipboardManager.setClip(ClipData.newPlainText("", url).toClipEntry())
+                        coroutineScope.launch {
+                            clipboard.setClipEntry(ClipData.newPlainText("", url).toClipEntry())
+                        }
 //                        val file = File(
 //                            context.externalCacheDir, "${Math.random()}.png"
 //                        ).also { it.writeBytes(byteArray) }
